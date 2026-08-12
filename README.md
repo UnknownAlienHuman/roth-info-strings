@@ -11,7 +11,7 @@ Lightweight, event-driven information strings for WoW Midnight. The addon displa
 
 ## Installation
 
-Copy `RothInfoStrings` into `World of Warcraft/_retail_/Interface/AddOns/`, enable it and reload the UI. The TOC declares optional `RothLib`; verify that addon is installed if the integration is needed.
+Copy `RothInfoStrings` into `World of Warcraft/_retail_/Interface/AddOns/`, enable it and reload the UI. The TOC retains an optional `RothLib` compatibility declaration, but the loaded `core.lua`/`options.lua` contain no direct RothLib call; the addon has no active RothLib integration path in this tree.
 
 ## Development status
 
