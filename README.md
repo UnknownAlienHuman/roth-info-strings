@@ -19,4 +19,4 @@ This is a small legacy-derived addon with no older development tracker. The repo
 
 ## License
 
-No license declaration was inferred from the current tree.
+Licensed under the [MIT License](LICENSE).
