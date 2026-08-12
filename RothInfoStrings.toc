@@ -1,0 +1,11 @@
+## Interface: 120000
+## X-Interface-Alt: 120001
+## Title: RothInfoStrings
+## Notes: Lightweight info strings (Midnight-safe, event-driven)
+## Author: Galaxy (Roth UI) / rebuilt
+## Version: 0.4.0
+## SavedVariables: RothInfoStringsDB
+## OptionalDeps: RothLib
+
+Info.xml
+options.lua
