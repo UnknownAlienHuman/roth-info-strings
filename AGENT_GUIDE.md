@@ -2,26 +2,118 @@
 
 ## Start here
 
-Read [`RothInfoStrings.toc`](RothInfoStrings.toc): it declares `RothInfoStringsDB`, optional `RothLib`, loads `Info.xml` (which includes `core.lua`), then loads `options.lua`. `core.lua` is the runtime owner; `options.lua` is a Blizzard Settings/legacy Interface Options view that calls the exported `_G.RothInfoStrings_Refresh` hook.
+[`RothInfoStrings.toc`](RothInfoStrings.toc) is the definitive load contract. Retail 12.1 loads `core.lua` and then `options.lua`. The addon has no XML indirection, bundled library, or optional addon dependency.
 
-## Runtime and state flow
+Target contract:
 
-`core.lua` copies defaults on `ADDON_LOADED`, creates `RothInfoStringsAnchor` on `PLAYER_LOGIN`, applies minimap or explicit placement, and starts the performance ticker. It updates zone/coordinates, XP/reputation/mail, network/fps, and memory on zone/player/progress/movement events. `PLAYER_STARTED_MOVING` starts a coordinate ticker and `PLAYER_STOPPED_MOVING` cancels it. `UpdatePerf` pauses memory scans below 30 FPS and hides/stops the UI after sustained FPS below 10; `/ris toggle` resets that protection.
+- Retail / Midnight `12.1.0`;
+- Interface `120100`;
+- verified Blizzard source baseline `12.1.0.69497`;
+- one SavedVariables root: `RothInfoStringsDB`.
 
-The single SavedVariables root is `RothInfoStringsDB`: enabled/lock/scale/position, minimap attachment, display toggles, ticker intervals, and drag modifier policy. `SetLocked`, `ApplyAnchor`, `UpdatePerf`, `UpdateProgress`, `StartPerfTicker`, and `StartCoordTicker` are the key symbols. `/ris lock|unlock|toggle|reset` is registered on `PLAYER_LOGIN`; Settings controls mirror those operations.
+## Runtime map
 
-## Dependencies and risks
+### Initialization
 
-`RothLib` is an optional TOC declaration but no direct `RothLib` symbol use appears in `core.lua` or `options.lua`; treat it as compatibility metadata, not a hard runtime API. The code uses `issecretvalue` checks for XP/level values and safe string conversion, but coordinates and reputation fields are patch-sensitive and need live-client verification before changing arithmetic/formatting.
+`core.lua` handles `ADDON_LOADED` by recursively merging defaults and sanitizing persisted numeric/string placement fields. `PLAYER_LOGIN` creates `RothInfoStringsAnchor`, three FontStrings, drag/tooltip scripts, slash commands, and the active tickers.
 
-The main hot path is the 0.5-second moving coordinate ticker and 2-second performance ticker. `UpdateMemTotal`/tooltip walks all addons and must remain throttled/paused under low FPS. Dragging changes the persisted position and disables minimap attachment; preserve this state transition.
+### Display sections
+
+- zone/coordinates: `GetZoneText`, `GetCoordinatesText`, `UpdateZoneAndCoordinates`;
+- FPS/latency/cached memory label: `UpdatePerformance`;
+- mail/XP/watched reputation: `UpdateProgress`, `GetXPText`, `GetReputationText`;
+- explicit addon-memory sample and tooltip: `SampleMemory`, `ShowMemoryTooltip`.
+
+Coordinates update once on zone/world events, while stopped, and through a bounded ticker only between `PLAYER_STARTED_MOVING` and `PLAYER_STOPPED_MOVING`.
+
+FPS/network text uses one bounded performance ticker. It does not scan addon memory. `C_AddOns.UpdateAddOnMemoryUsage` and the addon list walk run only from hover, click, `/ris memory`, or a direct internal diagnostic call.
+
+### Placement and lifecycle
+
+`Refresh` is the single runtime apply boundary. It sanitizes DB state, defers when combat is active, applies Minimap/UIParent anchoring and scale, applies lock/mouse state, updates display sections, and restarts only the required tickers. `PLAYER_REGEN_ENABLED` completes a deferred refresh.
+
+Dragging is allowed only while unlocked, outside combat, and with the configured modifier. A successful drag stores an accessible point/relative point and numeric offsets, then disables Minimap attachment.
+
+### Settings
+
+`options.lua` registers a vertical Blizzard Settings category after the addon has loaded. `Settings.RegisterAddOnSetting` owns direct writes for enablement, lock/drag policy, Minimap attachment, section visibility, memory tooltip availability, and scale. Every setting callback calls `_G.RothInfoStrings_Refresh`.
+
+No deprecated `InterfaceOptionsCheckButtonTemplate`, `OptionsSliderTemplate`, or `InterfaceOptions_AddCategory` fallback remains.
+
+## Data-safety invariants
+
+- Call `canaccessvalue` or `issecretvalue` before every type check, comparison, arithmetic operation, format, concatenation, log, table-key derivation, or persistent write involving game-returned values.
+- An inaccessible map ID must not be passed to `GetPlayerMapPosition`.
+- Coordinate arithmetic requires accessible numeric X/Y values.
+- An inaccessible level stops the XP path before `UnitXP` or `UnitXPMax` is read.
+- Inaccessible reputation fields must not be concatenated or used to construct a global label key.
+- Inaccessible mail state is ignored.
+- Do not serialize or log raw game payloads.
+- Do not reintroduce the string placeholder `SV` by calling `tostring` on a restricted value; use ordinary fixed fallback text.
+- UI placement/scale changes requested in combat must remain deferred.
+
+## Performance invariants
+
+- No `OnUpdate` handler.
+- No always-running coordinate ticker.
+- No periodic addon-memory scan.
+- Keep `perfInterval` bounded to `0.5..10.0` seconds and `coordInterval` to `0.1..2.0` seconds.
+- Stop all tickers when the addon is disabled.
+- Memory tooltip sorting is user-triggered and limited to the top 25 rows.
+- Do not restore the old automatic low-FPS shutdown; the addon must not hide itself based on a transient FPS sample.
+
+## State
+
+Durable keys include:
+
+- `enabled`, `locked`, `scale`;
+- `pos`, Minimap attachment points/offsets;
+- `ctrlAltDrag`;
+- `showZone`, `showCoords`, `showPerf`, `showMail`, `showXPRep`, `showMem`;
+- `perfInterval`, `coordInterval`.
+
+Frame references, FontStrings, ticker handles, movement state, deferred-refresh state, cached memory total, and memory sample time are runtime-only.
+
+## Commands
+
+```text
+/ris lock
+/ris unlock
+/ris toggle
+/ris reset
+/ris memory
+/ris config
+```
+
+`/ris memory` is the explicit command-line memory sampling path. `/ris config` opens the numeric Settings category ID stored by `options.lua`.
 
 ## Change routing
 
-- Display values, event routing, tickers, drag/lock, and slash: `core.lua`.
-- Settings widgets and refresh bridge: `options.lua`.
-- SavedVariables defaults/migration: top of `core.lua` and `ADDON_LOADED` branch; keep `CopyDefaults` semantics.
+- defaults, sanitization, secret/access helpers: top of `core.lua`;
+- zone/coordinates/performance/progress/memory formatting: `core.lua`;
+- frame, drag, tooltip, tickers, events, slash and refresh: `core.lua`;
+- options registration and callbacks: `options.lua`;
+- offline regression: `tests/test_safe_runtime.lua`;
+- metadata/load order: `RothInfoStrings.toc`.
 
 ## Verification
 
-Static: expand `Info.xml`, parse both Lua files, verify TOC references, and run `git diff --check`. In game, run `/ris unlock`, drag with the required modifier, `/ris lock`, `/ris toggle`, `/ris reset`, change Settings scale/attachment/memory, move, change zone, gain XP/mail, and sustain low FPS to validate the emergency path. Confirm `RothInfoStrings_Refresh` is present and no secret-value errors occur. Current audit does not claim live patch/API proof.
+From the repository root:
+
+```sh
+texlua --luaconly core.lua
+texlua --luaconly options.lua
+texlua tests/test_safe_runtime.lua
+```
+
+Expected regression result:
+
+```text
+PASS: inaccessible values fail closed, memory is on-demand, and UI refresh defers in combat
+```
+
+The test injects inaccessible values for zone, map ID, latency, level, mail, and reputation; asserts that `UnitXP` is not reached after an inaccessible level; verifies no memory update occurs at login; verifies explicit memory sampling; and verifies combat-deferred scale application.
+
+In the target client, test login/reload, zone transitions, stationary/moving coordinates, XP/level/faction/mail events, Settings callbacks, drag persistence, Minimap attachment, memory hover/click/command, enable/disable, combat-time setting changes, and `/console taintLog 1` plus Lua error capture.
+
+Static and mocked results do not prove current-client restricted behavior or Settings rendering. Record the exact client build for live evidence.

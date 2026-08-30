@@ -2,9 +2,9 @@
 
 | File | Responsibility |
 |---|---|
-| `RothInfoStrings.toc` | Metadata and SavedVariables |
-| `Info.xml` | Includes `core.lua`; the TOC loads `options.lua` afterward |
-| `core.lua` | DB defaults, safe formatting, anchor and event-driven updates |
-| `options.lua` | Settings controls and refresh |
+| `RothInfoStrings.toc` | Retail 12.1 metadata, SavedVariables, and definitive load order |
+| `core.lua` | Defaults/sanitization, value access gates, information lines, event routing, tickers, on-demand memory, drag/slash behavior, and combat-deferred refresh |
+| `options.lua` | Current Blizzard vertical Settings category and refresh callbacks |
+| `tests/test_safe_runtime.lua` | Mocked regression for inaccessible values, explicit memory sampling, and combat deferral |
 
-Detailed load/event/state routing is in [`AGENT_GUIDE.md`](AGENT_GUIDE.md).
+Detailed ownership and state routing are in [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`AGENT_GUIDE.md`](AGENT_GUIDE.md).

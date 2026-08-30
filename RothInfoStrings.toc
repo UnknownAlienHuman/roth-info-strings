@@ -1,11 +1,10 @@
-## Interface: 120000
-## X-Interface-Alt: 120001
+## Interface: 120100
 ## Title: RothInfoStrings
-## Notes: Lightweight info strings (Midnight-safe, event-driven)
+## Notes: Event-driven zone, coordinate, performance, mail, XP, reputation and on-demand memory strings for Retail 12.1.
 ## Author: Galaxy (Roth UI) / rebuilt
-## Version: 0.4.0
+## Version: 0.5.0
 ## SavedVariables: RothInfoStringsDB
-## OptionalDeps: RothLib
+## X-Verified-Build: 12.1.0.69497
 
-Info.xml
+core.lua
 options.lua
